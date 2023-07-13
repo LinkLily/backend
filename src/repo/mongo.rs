@@ -1,9 +1,7 @@
 use std::env;
-extern crate dotenvy;
-use dotenvy::dotenv;
 
 use mongodb::{
-    bson::{extjson::de::Error},
+    bson::{extjson::de::Error, doc},
     results::{InsertOneResult},
     Client, Collection
 };
@@ -16,7 +14,6 @@ pub struct MongoRepo {
 
 impl MongoRepo {
     pub async fn init() -> Self {
-        dotenv().ok();
         let uri = match env::var("MONGO_URI") {
             Ok(v) => v.to_string(),
             Err(_) => format!("Error loading `MONGO_URI` environment variable")
@@ -24,7 +21,9 @@ impl MongoRepo {
 
         let client = Client::with_uri_str(uri).await.unwrap();
         let db = client.database("LinkLily");
-        let col: Collection<User> = db.collection("User");
+        let col: Collection<User> = db.collection("Users");
+
+        info!("Successfully connected to MongoDB database `LinkLily`");
 
         MongoRepo { col }
 
@@ -46,6 +45,30 @@ impl MongoRepo {
             .ok()
             .expect(&*format!("Error creating user with username `{}`!", new_user.username));
         Ok(user)
+    }
+
+    pub async fn get_user(&self, username: String) -> Result<User, Error> {
+
+        let query_document = doc! {
+            "username": username.clone()
+        };
+
+        let user_response = self
+            .col
+            .find_one(query_document, None)
+            .await
+            .ok()
+            .expect(&*format!("Error: Couldn't find user with username `{}`!", username.clone()));
+
+        match user_response {
+            Some(user) => Ok(user),
+            None => Err(
+                Error::DeserializationError {
+                    message: format!("Error: User `{}` not found!", username)
+                }
+            )
+        }
+
     }
 }
 
