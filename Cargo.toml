@@ -1,0 +1,25 @@
+[package]
+name = "linklily-backend"
+version = "0.1.0"
+authors = ["Jade Nash <jade@lilydev.com>"]
+license = "AGPL-3.0-or-later"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+actix-web = "4.3.1"
+actix-web-httpauth = "0.8.0"
+
+serde = "1.0.164"
+chrono = "0.4.26"
+futures = "0.3.28"
+argon2 = "0.5.0"
+
+dotenvy = "0.15.7"
+
+
+[dependencies.mongodb]
+version = "2.5.0"
+default-features = false
+features = ["async-std-runtime"]
