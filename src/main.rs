@@ -2,20 +2,33 @@ extern crate dotenvy;
 
 use std::env;
 use dotenvy::dotenv;
+use clap::{Parser};
 extern crate pretty_env_logger;
 #[macro_use] extern crate log;
 use actix_web::{get, HttpServer, App, web::Data, Responder};
 use actix_web::dev::Service;
 use futures::FutureExt;
-use repo::mongo::MongoRepo;
-use crate::routes::{
-    user::{get_user, create_user}
+use crate::{
+    routes::{
+        user::{get_user, create_user}
+    },
+    repo::mongo::MongoRepo,
+    utils::gen_api_key
 };
 
 mod models;
 mod repo;
 mod routes;
 mod utils;
+
+#[derive(Parser, Debug)]
+#[command(version, about, long_about = None)]
+struct Args {
+    #[arg(short, long,
+        default_missing_value = "true",
+        help = "Generates, stores, and prints an API key.")]
+    gen_api_key: bool
+}
 
 
 #[get("/")]
@@ -27,8 +40,15 @@ async fn root() -> impl Responder {
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
     dotenv().ok();
-    env::set_var("RUST_LOG", "info");
     pretty_env_logger::init();
+
+    let args = Args::parse();
+
+    if args.gen_api_key {
+        gen_api_key()
+    }
+
+    env::set_var("RUST_LOG", "info");
 
     let db = MongoRepo::init().await;
     let db_data = Data::new(db);
@@ -40,20 +60,16 @@ async fn main() -> std::io::Result<()> {
                 origin.as_bytes().ends_with(b".linklily.me")
             });
 
-        // let auth = middleware::CheckAuthHeader;
-
         App::new()
             .app_data(db_data.clone())
             .wrap_fn(|req, srv| {
-
                 let headers = req.headers().clone();
-
 
                 srv.call(req).map(move |res| {
                     let auth_header = headers.get("X-LinkLily-Auth-Token");
                     match auth_header {
                         Some(header) => header,
-                        None => return Err(actix_web::error::ErrorUnauthorized("Unauthorized!"))
+                        None => return Err(actix_web::error::ErrorUnauthorized(""))
                     };
                     let auth_header_string = auth_header
                         .unwrap().to_str().unwrap();
@@ -61,13 +77,12 @@ async fn main() -> std::io::Result<()> {
                     let api_key = env::var("API_KEY").unwrap();
 
                     return if auth_header_string != api_key {
-                        Err(actix_web::error::ErrorUnauthorized("Unauthorized!"))
+                        Err(actix_web::error::ErrorUnauthorized(""))
                     } else {
                         res
                     }
                 })
             })
-            // .wrap(auth)
             .wrap(cors)
             .service(root)
             .service(get_user)

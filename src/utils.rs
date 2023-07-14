@@ -1,3 +1,4 @@
+use std::process::exit;
 use argon2::{
     password_hash::{
         rand_core::OsRng,
@@ -18,5 +19,14 @@ pub fn hash_password(password: Option<String>) -> Result<Password, Error> {
     };
 
     Ok(password)
+}
+
+pub fn gen_api_key() {
+    print!(
+        r#"
+        print an api key and store it :)
+        "#
+    );
+    exit(0)
 }
 

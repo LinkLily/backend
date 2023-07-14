@@ -12,6 +12,7 @@ actix-web = "4.3.1"
 actix-cors = "0.6.4"
 actix-web-httpauth = "0.8.0"
 
+clap = { version = "4.3.4", features = ["derive"] }
 
 serde = "1.0.164"
 serde_json = "1.0.97"
