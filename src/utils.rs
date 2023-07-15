@@ -1,20 +1,29 @@
 use std::process::exit;
+use rand::{
+    Rng, thread_rng,
+    distributions::Alphanumeric
+};
 use argon2::{
     password_hash::{
         rand_core::OsRng,
         PasswordHasher, SaltString, Error
     }, Argon2};
-use crate::models::util::Password;
+use crate::{
+    models::{
+        util::HashResult,
+        api::ApiKey
+    },
+};
 
-pub fn hash_password(password: Option<String>) -> Result<Password, Error> {
+pub fn hash_string(raw_string: Option<String>) -> Result<HashResult, Error> {
     let argon2 = Argon2::default();
     let salt = SaltString::generate(&mut OsRng);
 
     let password_hash =
-        argon2.hash_password(password.unwrap().as_ref(), &salt)?.to_string();
+        argon2.hash_password(raw_string.unwrap().as_ref(), &salt)?.to_string();
 
-    let password = Password {
-        hashed_password: password_hash,
+    let password = HashResult {
+        hash: password_hash,
         salt: salt.to_string()
     };
 
@@ -22,10 +31,14 @@ pub fn hash_password(password: Option<String>) -> Result<Password, Error> {
 }
 
 pub fn gen_api_key() {
-    print!(
-        r#"
-        print an api key and store it :)
-        "#
+    let new_key_string: String = thread_rng()
+        .sample_iter(&Alphanumeric)
+        .take(128)
+        .map(char::from)
+        .collect();
+
+    print!("{}",
+        new_key_string
     );
     exit(0)
 }

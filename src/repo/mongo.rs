@@ -7,11 +7,15 @@ use mongodb::{
     Client, Collection, IndexModel
 };
 use mongodb::options::IndexOptions;
-use crate::models::user::User;
+use crate::models::{
+    user::User,
+    api::ApiKey
+};
 
 
 pub struct MongoRepo {
-    user_col: Collection<User>
+    user_col: Collection<User>,
+    api_key_col: Collection<ApiKey>
 }
 
 impl MongoRepo {
@@ -23,7 +27,9 @@ impl MongoRepo {
 
         let client = Client::with_uri_str(uri).await.unwrap();
         let db = client.database("LinkLily");
-        let col: Collection<User> = db.collection("Users");
+
+        let user_col: Collection<User> = db.collection("Users");
+        let api_key_col: Collection<ApiKey> = db.collection("API Keys");
 
         let index_options = IndexOptions::builder().unique(true).build();
 
@@ -36,15 +42,15 @@ impl MongoRepo {
             .options(index_options.clone())
             .build();
 
-        col.create_index(email_model, None)
+        user_col.create_index(email_model, None)
             .await.expect("Error: Couldn't create index for `Users` collection");
-        col.create_index(username_model, None)
+        user_col.create_index(username_model, None)
             .await.expect("Error: Couldn't create index for `Users` collection");
 
 
         info!("Successfully connected to MongoDB database `LinkLily`");
 
-        MongoRepo { user_col: col }
+        MongoRepo { user_col, api_key_col }
 
     }
 
@@ -141,13 +147,23 @@ impl MongoRepo {
                     query_string
                 ))
             }
-
-
-
-
         }
+    }
 
+    pub async fn write_api_key(&self, key: String, salt: String , permission_level: String) -> Result<(), Error> {
+        let new_api_key = ApiKey {
+            id: None,
+            api_key: key,
+            salt,
+            permission_level
+        };
 
+        self
+            .api_key_col
+            .insert_one(new_api_key, None)
+            .await.expect("Error writing API key to database");
+
+        Ok(())
     }
 
 }

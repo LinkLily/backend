@@ -1,7 +1,7 @@
 use crate::{
     models::{user::User},
     repo::mongo::MongoRepo,
-    utils::hash_password
+    utils::hash_string
 };
 use actix_web::{get, post, HttpResponse, web::{Data, Json, Path}};
 use actix_web::http::StatusCode;
@@ -24,14 +24,14 @@ pub async fn get_user(db: Data<MongoRepo>, path: Path<String>) -> HttpResponse {
 #[post("/user")]
 pub async fn create_user(db: Data<MongoRepo>, user: Json<User>) -> HttpResponse {
 
-    let password = hash_password(user.password.to_owned()).unwrap();
+    let password = hash_string(user.password.to_owned()).unwrap();
 
     let data = User {
         id: None,
         name: user.name.to_owned(),
         email: user.email.to_owned(),
         username: user.username.to_owned(),
-        password: Option::from(password.hashed_password),
+        password: Option::from(password.hash),
         salt: Option::from(password.salt)
     };
 
