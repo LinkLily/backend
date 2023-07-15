@@ -9,7 +9,11 @@ use actix_web::dev::Service;
 use futures::FutureExt;
 use crate::{
     routes::{
-        user::{get_user, create_user}
+        user::{
+            get_user,
+            create_user,
+            check_user_exists
+        }
     },
     repo::mongo::MongoRepo,
     utils::gen_api_key
@@ -87,6 +91,7 @@ async fn main() -> std::io::Result<()> {
             .service(root)
             .service(get_user)
             .service(create_user)
+            .service(check_user_exists)
     })
     .bind(("127.0.0.1", 8080))?
     .run()

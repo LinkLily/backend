@@ -11,7 +11,7 @@ use crate::models::user::User;
 
 
 pub struct MongoRepo {
-    col: Collection<User>
+    user_col: Collection<User>
 }
 
 impl MongoRepo {
@@ -44,7 +44,7 @@ impl MongoRepo {
 
         info!("Successfully connected to MongoDB database `LinkLily`");
 
-        MongoRepo { col }
+        MongoRepo { user_col: col }
 
     }
 
@@ -59,7 +59,7 @@ impl MongoRepo {
         };
 
         let user = self
-            .col
+            .user_col
             .insert_one(new_document, None)
             .await;
 
@@ -78,7 +78,7 @@ impl MongoRepo {
         };
 
         let user_response = self
-            .col
+            .user_col
             .find_one(query_document, None)
             .await
             .ok()
@@ -94,5 +94,61 @@ impl MongoRepo {
         }
 
     }
+
+    pub async fn check_user_exists(&self, query_type: String, query_string: String) -> bool {
+        match query_type.as_str() {
+            "email" => {
+                let query_doc = doc! {
+                    "email": query_string.clone()
+                };
+
+                let query_response = self
+                    .user_col
+                    .find_one(query_doc, None)
+                    .await
+                    .ok()
+                    .expect(&*format!(
+                        "Error finding user with email `{}`", query_string.clone()
+                    ));
+
+                match query_response {
+                    Some(_) => true,
+                    None => false
+                }
+            },
+            "username" => {
+                let query_doc = doc! {
+                    "username": query_string.clone()
+                };
+
+                let query_response = self
+                    .user_col
+                    .find_one(query_doc, None)
+                    .await
+                    .ok()
+                    .expect(&*format!(
+                        "Error finding user with username `{}`", query_string.clone()
+                    ));
+
+                match query_response {
+                    Some(_) => true,
+                    None => false
+                }
+            },
+            _ => {
+                panic!("{}", format!(
+                    "Called `check_user_exists` with invalid type `{}`!",
+                    query_string
+                ))
+            }
+
+
+
+
+        }
+
+
+    }
+
 }
 
