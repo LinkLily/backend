@@ -1,8 +1,9 @@
 use std::env;
+use actix_web::body::BoxBody;
+use actix_web::HttpResponse;
 
 use mongodb::{
     bson::{extjson::de::Error, doc},
-    results::{InsertOneResult},
     Client, Collection, IndexModel
 };
 use mongodb::options::IndexOptions;
@@ -24,12 +25,19 @@ impl MongoRepo {
         let db = client.database("LinkLily");
         let col: Collection<User> = db.collection("Users");
 
-        let username_options = IndexOptions::builder().unique(true).build();
+        let index_options = IndexOptions::builder().unique(true).build();
+
         let username_model = IndexModel::builder()
             .keys(doc! { "username": 1u32 })
-            .options(username_options)
+            .options(index_options.clone())
+            .build();
+        let email_model = IndexModel::builder()
+            .keys(doc! { "email": 1u32 })
+            .options(index_options.clone())
             .build();
 
+        col.create_index(email_model, None)
+            .await.expect("Error: Couldn't create index for `Users` collection");
         col.create_index(username_model, None)
             .await.expect("Error: Couldn't create index for `Users` collection");
 
@@ -40,10 +48,11 @@ impl MongoRepo {
 
     }
 
-    pub async fn create_user(&self, new_user: User) -> Result<InsertOneResult, Error> {
+    pub async fn create_user(&self, new_user: User) -> HttpResponse {
         let new_document = User {
             id: None, // None tells MongoDB to auto-generate a user ID
             name: new_user.name,
+            email: new_user.email,
             username: new_user.username.clone(),
             password: new_user.password,
             salt: new_user.salt
@@ -52,10 +61,14 @@ impl MongoRepo {
         let user = self
             .col
             .insert_one(new_document, None)
-            .await
-            .ok()
-            .expect(&*format!("Error creating user with username `{}`!", new_user.username));
-        Ok(user)
+            .await;
+
+        match user {
+            Ok(_) => HttpResponse::Ok().finish(),
+            Err(_) => {
+                HttpResponse::Conflict().body(BoxBody::new("Username or email taken."))
+            }
+        }
     }
 
     pub async fn get_user(&self, username: String) -> Result<User, Error> {

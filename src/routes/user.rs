@@ -28,15 +28,12 @@ pub async fn create_user(db: Data<MongoRepo>, user: Json<User>) -> HttpResponse 
     let data = User {
         id: None,
         name: user.name.to_owned(),
+        email: user.email.to_owned(),
         username: user.username.to_owned(),
         password: Option::from(password.hashed_password),
         salt: Option::from(password.salt)
     };
 
-    let user_detail = db.create_user(data).await;
-    match user_detail {
-        Ok(user) => HttpResponse::Ok().json(user),
-        Err(err) => HttpResponse::NotFound().body(err.to_string())
-    }
+    db.create_user(data).await
 }
 
