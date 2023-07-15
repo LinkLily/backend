@@ -3,8 +3,9 @@ use std::env;
 use mongodb::{
     bson::{extjson::de::Error, doc},
     results::{InsertOneResult},
-    Client, Collection
+    Client, Collection, IndexModel
 };
+use mongodb::options::IndexOptions;
 use crate::models::user::User;
 
 
@@ -22,6 +23,16 @@ impl MongoRepo {
         let client = Client::with_uri_str(uri).await.unwrap();
         let db = client.database("LinkLily");
         let col: Collection<User> = db.collection("Users");
+
+        let username_options = IndexOptions::builder().unique(true).build();
+        let username_model = IndexModel::builder()
+            .keys(doc! { "username": 1u32 })
+            .options(username_options)
+            .build();
+
+        col.create_index(username_model, None)
+            .await.expect("Error: Couldn't create index for `Users` collection");
+
 
         info!("Successfully connected to MongoDB database `LinkLily`");
 

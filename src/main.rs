@@ -1,5 +1,4 @@
 extern crate dotenvy;
-
 use std::env;
 use dotenvy::dotenv;
 use clap::{Parser};
@@ -39,6 +38,7 @@ async fn root() -> impl Responder {
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
+    env::set_var("RUST_LOG", "info");
     dotenv().ok();
     pretty_env_logger::init();
 
@@ -48,7 +48,7 @@ async fn main() -> std::io::Result<()> {
         gen_api_key()
     }
 
-    env::set_var("RUST_LOG", "info");
+    info!("Server starting...");
 
     let db = MongoRepo::init().await;
     let db_data = Data::new(db);

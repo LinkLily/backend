@@ -9,6 +9,6 @@ pub struct User {
     pub name: Option<String>,
     pub username: String,
     pub password: Option<String>,
-    pub salt: Option<String>,
+    pub salt: Option<String>
 }
 
