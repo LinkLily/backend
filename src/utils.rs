@@ -38,7 +38,7 @@ pub fn hash_string(raw_string: Option<String>) -> Result<HashResult, Error> {
     Ok(password)
 }
 
-pub fn gen_api_key() {
+pub fn gen_api_key(permission_level: &str) {
     let new_key_string: String = thread_rng()
         .sample_iter(&Alphanumeric)
         .take(64)
@@ -56,16 +56,18 @@ pub fn gen_api_key() {
     );
 
     println!("{}",
-        new_key_string
+        format!(
+            "\n\
+            +------------------------- API Key pair generated -------------------------+\n\
+            |                                                                          |\n\
+            | Key: {}    |\n\
+            | Secret: {}                                 |\n\
+            |                                                                          |\n\
+            +--------------------------------------------------------------------------+",
+            new_key_string, new_secret_string
+        )
     );
 
-    println!("{}",
-        new_secret_string
-    );
-
-    println!("{}",
-        key_hash
-    );
     exit(0)
 }
 
