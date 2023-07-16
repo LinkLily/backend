@@ -150,11 +150,10 @@ impl MongoRepo {
         }
     }
 
-    pub async fn write_api_key(&self, key: String, salt: String , permission_level: String) -> Result<(), Error> {
+    pub async fn write_api_key(&self, key: String, permission_level: String) -> Result<(), Error> {
         let new_api_key = ApiKey {
             id: None,
-            api_key: key,
-            salt,
+            hashed_api_key: key,
             permission_level
         };
 

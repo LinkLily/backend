@@ -23,7 +23,6 @@ pub async fn get_user(db: Data<MongoRepo>, path: Path<String>) -> HttpResponse {
 
 #[post("/user")]
 pub async fn create_user(db: Data<MongoRepo>, user: Json<User>) -> HttpResponse {
-
     let password = hash_string(user.password.to_owned()).unwrap();
 
     let data = User {

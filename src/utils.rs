@@ -15,6 +15,14 @@ use crate::{
     },
 };
 
+pub fn hash_string_with_salt(raw_string: String, salt_string: String) -> String {
+    let argon2 = Argon2::default();
+    let salt = SaltString::encode_b64(salt_string.as_ref()).unwrap();
+
+    argon2.hash_password(raw_string.as_ref(), &salt).unwrap().to_string()
+}
+
+
 pub fn hash_string(raw_string: Option<String>) -> Result<HashResult, Error> {
     let argon2 = Argon2::default();
     let salt = SaltString::generate(&mut OsRng);
@@ -33,12 +41,30 @@ pub fn hash_string(raw_string: Option<String>) -> Result<HashResult, Error> {
 pub fn gen_api_key() {
     let new_key_string: String = thread_rng()
         .sample_iter(&Alphanumeric)
-        .take(128)
+        .take(64)
         .map(char::from)
         .collect();
 
-    print!("{}",
+    let new_secret_string: String = thread_rng()
+        .sample_iter(&Alphanumeric)
+        .take(32)
+        .map(char::from)
+        .collect();
+
+    let key_hash: String = hash_string_with_salt(
+        new_key_string.clone(), new_secret_string.clone()
+    );
+
+    println!("{}",
         new_key_string
+    );
+
+    println!("{}",
+        new_secret_string
+    );
+
+    println!("{}",
+        key_hash
     );
     exit(0)
 }
