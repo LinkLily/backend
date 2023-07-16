@@ -38,7 +38,7 @@ pub fn hash_string(raw_string: Option<String>) -> Result<HashResult, Error> {
     Ok(password)
 }
 
-pub fn gen_api_key(permission_level: &str) {
+pub fn gen_api_key(permission_level: i8) {
     let new_key_string: String = thread_rng()
         .sample_iter(&Alphanumeric)
         .take(64)

@@ -49,7 +49,12 @@ async fn main() -> std::io::Result<()> {
     let args = Args::parse();
 
     if args.gen_api_key {
-        gen_api_key("admin")
+        /*
+            3 - Admin User
+            2 - Privileged User - Official site will use this
+            1 - Basic User
+        */
+        gen_api_key(2)
     }
 
     info!("Server starting...");
