@@ -62,9 +62,10 @@ pub fn gen_api_key(permission_level: i8) {
             |                                                                          |\n\
             | Key: {}    |\n\
             | Secret: {}                                 |\n\
+            | Permission Level: {}                                                      |\n\
             |                                                                          |\n\
             +--------------------------------------------------------------------------+",
-            new_key_string, new_secret_string
+            new_key_string, new_secret_string, permission_level.to_string()
         )
     );
 

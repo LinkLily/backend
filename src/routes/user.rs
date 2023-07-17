@@ -1,6 +1,6 @@
 use crate::{
     models::{user::User},
-    repo::mongo::MongoRepo,
+    database::mongo::MongoRepo,
     utils::hash_string
 };
 use actix_web::{get, post, HttpResponse, web::{Data, Json, Path}};

@@ -1,26 +1,28 @@
+#[macro_use] extern crate log;
+extern crate pretty_env_logger;
 extern crate dotenvy;
 use std::env;
 use dotenvy::dotenv;
 use clap::{Parser};
-extern crate pretty_env_logger;
-#[macro_use] extern crate log;
 use actix_web::{get, HttpServer, App, web::Data, Responder};
 use actix_web::dev::Service;
 use futures::FutureExt;
+use redis;
 use crate::{
     routes::{
         user::{
             get_user,
             create_user,
             check_user_exists
-        }
+        },
+        api::gen_key
     },
-    repo::mongo::MongoRepo,
+    database::mongo::MongoRepo,
     utils::gen_api_key
 };
 
+mod database;
 mod models;
-mod repo;
 mod routes;
 mod utils;
 
@@ -59,8 +61,13 @@ async fn main() -> std::io::Result<()> {
 
     info!("Server starting...");
 
-    let db = MongoRepo::init().await;
-    let db_data = Data::new(db);
+
+    let redis_uri = env::var("REDIS_URI").unwrap();
+    let redis = redis::Client::open(redis_uri).unwrap();
+
+
+    let mongo_db = MongoRepo::init().await;
+    let mongo_db_data = Data::new(mongo_db);
 
     HttpServer::new(move || {
 
@@ -70,7 +77,8 @@ async fn main() -> std::io::Result<()> {
             });
 
         App::new()
-            .app_data(db_data.clone())
+            .app_data(Data::new(redis.clone()))
+            .app_data(mongo_db_data.clone())
             .wrap_fn(|req, srv| {
                 let headers = req.headers().clone();
 
@@ -97,6 +105,7 @@ async fn main() -> std::io::Result<()> {
             .service(get_user)
             .service(create_user)
             .service(check_user_exists)
+            .service(gen_key)
     })
     .bind(("127.0.0.1", 8080))?
     .run()
