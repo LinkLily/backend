@@ -7,16 +7,22 @@ use actix_web::{
     web::{Data, Path},
     get, HttpResponse, HttpRequest};
 use log::kv::Source;
-use redis::{AsyncCommands, cmd};
+use redis::AsyncCommands;
 use crate::{
-    models::api::{ApiKeyPair, ApiKey},
+    models::api::ApiKeyPair,
     utils::hash_string_with_salt,
-    database::redis::{RedisPool}
+    database::{
+        mongo::MongoRepo,
+        redis::{
+            RedisPool,
+            rebuild_cache
+        }
+    }
 };
 
 
 #[get("/token/gen/{permission_level}")]
-pub async fn gen_key(req: HttpRequest, db: Data<RedisPool>, path: Path<i8>) -> HttpResponse {
+pub async fn gen_key(req: HttpRequest, redis: Data<RedisPool>, db: Data<MongoRepo>, path: Path<i8>) -> HttpResponse {
     let key_gen_env = env::var("ADMIN_TOKEN").unwrap();
     let key_gen_header = req.headers().get("X-LinkLily-Admin-Token");
     let key_gen_header_string;
@@ -54,25 +60,19 @@ pub async fn gen_key(req: HttpRequest, db: Data<RedisPool>, path: Path<i8>) -> H
         other => return HttpResponse::BadRequest().body(format!("Invalid permission level `{other}`!"))
     };
 
-    let mut db_conn = db.get().await.unwrap();
 
-    let new_api_key = ApiKey {
-        id: None,
-        hashed_api_key: key_hash,
-        permission_level
+    let db_res = db.write_api_key(key_hash, permission_level)
+        .await;
+
+    match db_res {
+        Ok(_) => (),
+        Err(_) => return HttpResponse::InternalServerError().finish()
     };
 
-    let redis_res = cmd("LPUSH")
-        .arg("api_keys")
-        .arg(serde_json::to_string(&new_api_key).unwrap())
-        .query_async::<_, ()>(&mut db_conn).await;
 
-    match redis_res {
-        Ok(res) => res,
-        Err(err) => return HttpResponse::InternalServerError().body(err.to_string())
-    }
+    debug!("Wrote to database!");
 
-    debug!("Wrote to redis database!");
+    rebuild_cache(redis, db).await;
 
 
     HttpResponse::Ok().json(

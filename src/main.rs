@@ -17,7 +17,10 @@ use crate::{
         },
         api::gen_key
     },
-    database::mongo::MongoRepo,
+    database::{
+        mongo::MongoRepo,
+        redis::rebuild_cache
+    },
     utils::gen_api_key,
     middleware::validate_api_token::ValidateApiToken
 };
@@ -67,7 +70,9 @@ async fn main() -> std::io::Result<()> {
     let redis_data = Data::new(redis_pool);
 
     let mongo_db = MongoRepo::init().await;
-    let mongo_db_data = Data::new(mongo_db);
+    let mongo_data = Data::new(mongo_db);
+
+    rebuild_cache(redis_data.clone(), mongo_data.clone()).await;
 
     HttpServer::new(move || {
         let cors = actix_cors::Cors::default()
@@ -77,7 +82,7 @@ async fn main() -> std::io::Result<()> {
 
         App::new()
             .app_data(redis_data.clone())
-            .app_data(mongo_db_data.clone())
+            .app_data(mongo_data.clone())
             .wrap(ValidateApiToken)
             .wrap(cors)
             .service(root)

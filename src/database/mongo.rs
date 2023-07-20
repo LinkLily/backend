@@ -1,21 +1,26 @@
 use std::env;
 use actix_web::body::BoxBody;
 use actix_web::HttpResponse;
+use futures::TryStreamExt;
 
 use mongodb::{
     bson::{extjson::de::Error, doc},
     Client, Collection, IndexModel
 };
 use mongodb::options::IndexOptions;
-use crate::models::{
-    user::User,
-    api::ApiKey
+use crate::{
+    models::{
+        user::User,
+    },
+    database::models::api::{
+        ApiKeyMongo
+    }
 };
 
 
 pub struct MongoRepo {
     user_col: Collection<User>,
-    api_key_col: Collection<ApiKey>
+    api_key_col: Collection<ApiKeyMongo>
 }
 
 impl MongoRepo {
@@ -29,7 +34,7 @@ impl MongoRepo {
         let db = client.database("LinkLily");
 
         let user_col: Collection<User> = db.collection("Users");
-        let api_key_col: Collection<ApiKey> = db.collection("API Keys");
+        let api_key_col: Collection<ApiKeyMongo> = db.collection("API Keys");
 
         let index_options = IndexOptions::builder().unique(true).build();
 
@@ -151,7 +156,7 @@ impl MongoRepo {
     }
 
     pub async fn write_api_key(&self, key: String, permission_level: i8) -> Result<(), Error> {
-        let new_api_key = ApiKey {
+        let new_api_key = ApiKeyMongo {
             id: None,
             hashed_api_key: key,
             permission_level
@@ -163,6 +168,16 @@ impl MongoRepo {
             .await.expect("Error writing API key to database");
 
         Ok(())
+    }
+
+    pub async fn get_all_api_keys(&self) -> Vec<ApiKeyMongo> {
+
+        let search = match self.api_key_col.find(None, None).await {
+            Ok(cursor) => cursor,
+            Err(_) => return vec![]
+        };
+
+        search.try_collect().await.unwrap()
     }
 
 }
