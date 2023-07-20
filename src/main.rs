@@ -1,10 +1,10 @@
 #[macro_use] extern crate log;
 extern crate pretty_env_logger;
 extern crate dotenvy;
-use std::env;
+use std::ops::Deref;
 use dotenvy::dotenv;
 use clap::{Parser};
-use actix_web::{get, HttpServer, App, web::Data, Responder};
+use actix_web::{get, HttpServer, App, web::Data, Responder, web};
 use actix_web::dev::Service;
 use futures::FutureExt;
 use redis;
@@ -18,10 +18,12 @@ use crate::{
         api::gen_key
     },
     database::mongo::MongoRepo,
-    utils::gen_api_key
+    utils::gen_api_key,
+    middleware::validate_api_token::ValidateApiToken
 };
 
 mod database;
+mod middleware;
 mod models;
 mod routes;
 mod utils;
@@ -44,7 +46,6 @@ async fn root() -> impl Responder {
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
-    env::set_var("RUST_LOG", "info");
     dotenv().ok();
     pretty_env_logger::init();
 
@@ -62,50 +63,31 @@ async fn main() -> std::io::Result<()> {
     info!("Server starting...");
 
 
-    let redis_uri = env::var("REDIS_URI").unwrap();
-    let redis = redis::Client::open(redis_uri).unwrap();
-
+    let redis_pool = database::redis::create_pool().unwrap();
+    let redis_data = Data::new(redis_pool);
 
     let mongo_db = MongoRepo::init().await;
     let mongo_db_data = Data::new(mongo_db);
 
     HttpServer::new(move || {
-
         let cors = actix_cors::Cors::default()
             .allowed_origin_fn(|origin, _req_head| {
                 origin.as_bytes().ends_with(b".linklily.me")
             });
 
         App::new()
-            .app_data(Data::new(redis.clone()))
+            .app_data(redis_data.clone())
             .app_data(mongo_db_data.clone())
-            .wrap_fn(|req, srv| {
-                let headers = req.headers().clone();
-
-                srv.call(req).map(move |res| {
-                    let auth_header = headers.get("X-LinkLily-Auth-Token");
-                    match auth_header {
-                        Some(header) => header,
-                        None => return Err(actix_web::error::ErrorUnauthorized(""))
-                    };
-                    let auth_header_string = auth_header
-                        .unwrap().to_str().unwrap();
-
-                    let api_key = env::var("API_KEY").unwrap();
-
-                    return if auth_header_string != api_key {
-                        Err(actix_web::error::ErrorUnauthorized(""))
-                    } else {
-                        res
-                    }
-                })
-            })
+            .wrap(ValidateApiToken)
             .wrap(cors)
             .service(root)
             .service(get_user)
             .service(create_user)
             .service(check_user_exists)
-            .service(gen_key)
+            .service(
+                web::scope("/admin")
+                    .service(gen_key)
+            )
     })
     .bind(("127.0.0.1", 8080))?
     .run()
