@@ -10,8 +10,7 @@ use argon2::{
     }, Argon2};
 use crate::{
     models::{
-        util::HashResult,
-        api::ApiKey
+        util::HashResult
     },
 };
 
@@ -23,12 +22,12 @@ pub fn hash_string_with_salt(raw_string: String, salt_string: String) -> String 
 }
 
 
-pub fn hash_string(raw_string: Option<String>) -> Result<HashResult, Error> {
+pub fn hash_string(raw_string: String) -> Result<HashResult, Error> {
     let argon2 = Argon2::default();
     let salt = SaltString::generate(&mut OsRng);
 
     let password_hash =
-        argon2.hash_password(raw_string.unwrap().as_ref(), &salt)?.to_string();
+        argon2.hash_password(raw_string.as_ref(), &salt)?.to_string();
 
     let password = HashResult {
         hash: password_hash,
@@ -37,6 +36,8 @@ pub fn hash_string(raw_string: Option<String>) -> Result<HashResult, Error> {
 
     Ok(password)
 }
+
+// This does nothing for now & may be removed in the future
 
 pub fn gen_api_key(permission_level: i8) {
     let new_key_string: String = thread_rng()
@@ -51,9 +52,12 @@ pub fn gen_api_key(permission_level: i8) {
         .map(char::from)
         .collect();
 
-    let key_hash: String = hash_string_with_salt(
-        new_key_string.clone(), new_secret_string.clone()
-    );
+    // let key_hash: String = hash_string_with_salt(
+    //     new_key_string.clone(), new_secret_string.clone()
+    // );
+
+
+
 
     println!("{}",
         format!(

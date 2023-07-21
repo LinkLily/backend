@@ -2,24 +2,28 @@ use std::env;
 use actix_web::body::BoxBody;
 use actix_web::HttpResponse;
 use futures::TryStreamExt;
+use chrono::Utc;
 
 use mongodb::{
     bson::{extjson::de::Error, doc},
     Client, Collection, IndexModel
 };
 use mongodb::options::IndexOptions;
+
 use crate::{
-    models::{
-        user::User,
+    database::models::{
+        user::UserMongo,
+        api::ApiKeyMongo
     },
-    database::models::api::{
-        ApiKeyMongo
-    }
+    models::{
+        user::User
+    },
+    routes::models::user::{UserRequest}
 };
 
 
 pub struct MongoRepo {
-    user_col: Collection<User>,
+    user_col: Collection<UserMongo>,
     api_key_col: Collection<ApiKeyMongo>
 }
 
@@ -33,7 +37,7 @@ impl MongoRepo {
         let client = Client::with_uri_str(uri).await.unwrap();
         let db = client.database("LinkLily");
 
-        let user_col: Collection<User> = db.collection("Users");
+        let user_col: Collection<UserMongo> = db.collection("Users");
         let api_key_col: Collection<ApiKeyMongo> = db.collection("API Keys");
 
         let index_options = IndexOptions::builder().unique(true).build();
@@ -59,14 +63,15 @@ impl MongoRepo {
 
     }
 
-    pub async fn create_user(&self, new_user: User) -> HttpResponse {
-        let new_document = User {
+    pub async fn create_user(&self, new_user: UserRequest, salt: String) -> HttpResponse {
+        let new_document = UserMongo {
             id: None, // None tells MongoDB to auto-generate a user ID
             name: new_user.name,
             email: new_user.email,
             username: new_user.username.clone(),
             password: new_user.password,
-            salt: new_user.salt
+            salt: salt,
+            created_at: Utc::now().to_string(),
         };
 
         let user = self
@@ -96,7 +101,13 @@ impl MongoRepo {
             .expect(&*format!("Error: Couldn't find user with username `{}`!", username.clone()));
 
         match user_response {
-            Some(user) => Ok(user),
+            Some(user) => Ok(
+                User {
+                    name: user.name,
+                    username: user.username,
+                    created_at: user.created_at
+                }
+            ),
             None => Err(
                 Error::DeserializationError {
                     message: format!("Error: User `{}` not found!", username)
