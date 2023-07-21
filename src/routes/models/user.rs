@@ -7,3 +7,12 @@ pub struct UserRequest {
     pub username: String,
     pub password: String
 }
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct UserEditRequest {
+    pub name: Option<String>,
+    pub email: Option<String>,
+    pub username: Option<String>,
+    pub password: Option<String>
+}
+

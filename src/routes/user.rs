@@ -1,14 +1,17 @@
-use actix_web::{get, post, HttpResponse, web::{Data, Json, Path}};
-use actix_web::http::StatusCode;
+use actix_web::{
+    get, post, patch, HttpResponse,
+    web::{Data, Json, Path},
+    http::StatusCode
+};
 use serde_json::json;
 use crate::{
     database::mongo::MongoRepo,
-    routes::models::user::UserRequest,
-    utils::hash_string
+    routes::models::user::{UserRequest, UserEditRequest},
+    utils::{hash_string, validate_password}
 };
 
 
-#[get("/user/{username}")]
+#[get("/{username}")]
 pub async fn get_user(db: Data<MongoRepo>, path: Path<String>) -> HttpResponse {
 
     let username = path.into_inner();
@@ -22,12 +25,9 @@ pub async fn get_user(db: Data<MongoRepo>, path: Path<String>) -> HttpResponse {
     }
 }
 
-#[post("/user")]
+#[post("")]
 pub async fn create_user(db: Data<MongoRepo>, user: Json<UserRequest>) -> HttpResponse {
-    let pass_strength =
-        zxcvbn::zxcvbn(user.password.as_ref(), &[]).unwrap();
-
-    if pass_strength.score() < 3 {
+    if !validate_password(user.password.to_string()) {
         return HttpResponse::BadRequest().body("Invalid password: Too weak!");
     }
 
@@ -43,8 +43,18 @@ pub async fn create_user(db: Data<MongoRepo>, user: Json<UserRequest>) -> HttpRe
     db.create_user(data, password.salt).await
 }
 
+#[patch("/{username}")]
+pub async fn edit_user(db: Data<MongoRepo>, path: Path<String>, new_data: Json<UserEditRequest>) -> HttpResponse {
+    let username = path.into_inner();
+
+
+    let edit_user_res = db.edit_user(username, new_data.into_inner()).await;
+
+    edit_user_res
+}
+
 // This should probably be a post request instead but here it is for now
-#[get("/user/exists/{type}/{query}")]
+#[get("/exists/{type}/{query}")]
 pub async fn check_user_exists(db: Data<MongoRepo>, path: Path<(String, String)>) -> HttpResponse {
     let (field_type, query_value) = path.into_inner();
 

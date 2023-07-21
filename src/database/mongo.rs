@@ -8,7 +8,7 @@ use mongodb::{
     bson::{extjson::de::Error, doc},
     Client, Collection, IndexModel
 };
-use mongodb::options::IndexOptions;
+use mongodb::options::{IndexOptions, UpdateModifications};
 
 use crate::{
     database::models::{
@@ -18,7 +18,8 @@ use crate::{
     models::{
         user::User
     },
-    routes::models::user::{UserRequest}
+    routes::models::user::{UserRequest, UserEditRequest},
+    utils::{hash_string, validate_password}
 };
 
 
@@ -115,6 +116,53 @@ impl MongoRepo {
             )
         }
 
+    }
+
+    pub async fn edit_user(&self, username: String, new_data: UserEditRequest) -> HttpResponse {
+        let query = doc! {
+            "username": username
+        };
+
+        let mut new_data_doc = doc! {};
+
+        if new_data.name.is_some() {
+            new_data_doc.insert("name", new_data.name);
+        }
+        if new_data.email.is_some() {
+            new_data_doc.insert("email", new_data.email);
+        }
+        if new_data.username.is_some() {
+            new_data_doc.insert("username", new_data.username);
+        }
+        if new_data.password.is_some() {
+            if !validate_password(new_data.password.clone().unwrap()) {
+                return HttpResponse::BadRequest().body("Invalid password: Too weak!");
+            }
+
+            let new_password =
+                hash_string(new_data.password.unwrap()).unwrap();
+
+            new_data_doc.insert("password", new_password.hash);
+            new_data_doc.insert("salt", new_password.salt);
+        }
+
+
+        let update_data_doc = doc! {
+            "$set": new_data_doc
+        };
+
+        let update_res = self
+            .user_col
+            .find_one_and_update(
+                query,
+                UpdateModifications::from(update_data_doc),
+                None
+            ).await;
+
+        match update_res {
+            Ok(_) => HttpResponse::Ok().finish(),
+            Err(err) => HttpResponse::NotFound().body(err.to_string())
+        }
     }
 
     pub async fn check_user_exists(&self, query_type: String, query_string: String) -> bool {

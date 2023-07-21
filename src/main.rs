@@ -10,11 +10,7 @@ use futures::FutureExt;
 use redis;
 use crate::{
     routes::{
-        user::{
-            get_user,
-            create_user,
-            check_user_exists
-        },
+        user::*,
         api::gen_key
     },
     database::{
@@ -88,9 +84,13 @@ async fn main() -> std::io::Result<()> {
                 web::scope("/api")
                     .wrap(ValidateApiToken)
                     .service(root)
-                    .service(get_user)
-                    .service(create_user)
-                    .service(check_user_exists)
+                    .service(
+                        web::scope("/user")
+                            .service(get_user)
+                            .service(create_user)
+                            .service(edit_user)
+                            .service(check_user_exists)
+                    )
             )
             .service(
                 web::scope("/admin")

@@ -37,6 +37,18 @@ pub fn hash_string(raw_string: String) -> Result<HashResult, Error> {
     Ok(password)
 }
 
+pub fn validate_password(password: String) -> bool {
+    let pass_strength =
+        zxcvbn::zxcvbn(&password, &[]).unwrap();
+
+    if pass_strength.score() < 3 {
+        false
+    } else {
+        true
+    }
+}
+
+
 // This does nothing for now & may be removed in the future
 
 pub fn gen_api_key(permission_level: i8) {
