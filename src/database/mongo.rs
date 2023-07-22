@@ -165,6 +165,24 @@ impl MongoRepo {
         }
     }
 
+    pub async fn delete_user(&self, username: String) -> HttpResponse {
+        let query_doc = doc! {
+            "username": username
+        };
+
+        let delete_res = self
+            .user_col
+            .find_one_and_delete(query_doc, None)
+            .await;
+
+        match delete_res {
+            Ok(_) => HttpResponse::Ok().finish(),
+            Err(err) => HttpResponse::NotFound().body(err.to_string())
+        }
+
+
+    }
+
     pub async fn check_user_exists(&self, query_type: String, query_string: String) -> bool {
         match query_type.as_str() {
             "email" => {

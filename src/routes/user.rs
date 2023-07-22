@@ -1,5 +1,6 @@
 use actix_web::{
-    get, post, patch, HttpResponse,
+    get, post, patch, delete,
+    HttpResponse,
     web::{Data, Json, Path},
     http::StatusCode
 };
@@ -47,10 +48,14 @@ pub async fn create_user(db: Data<MongoRepo>, user: Json<UserRequest>) -> HttpRe
 pub async fn edit_user(db: Data<MongoRepo>, path: Path<String>, new_data: Json<UserEditRequest>) -> HttpResponse {
     let username = path.into_inner();
 
+    db.edit_user(username, new_data.into_inner()).await
+}
 
-    let edit_user_res = db.edit_user(username, new_data.into_inner()).await;
+#[delete("/{username}")]
+pub async fn delete_user(db: Data<MongoRepo>, path: Path<String>) -> HttpResponse {
+    let username = path.into_inner();
 
-    edit_user_res
+    db.delete_user(username).await
 }
 
 // This should probably be a post request instead but here it is for now

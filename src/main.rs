@@ -89,6 +89,7 @@ async fn main() -> std::io::Result<()> {
                             .service(get_user)
                             .service(create_user)
                             .service(edit_user)
+                            .service(delete_user)
                             .service(check_user_exists)
                     )
             )
