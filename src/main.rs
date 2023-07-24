@@ -13,10 +13,6 @@ use crate::{
         user::*,
         api::gen_key
     },
-    database::{
-        mongo::MongoRepo,
-        redis::rebuild_cache
-    },
     utils::gen_api_key,
     middleware::validate_api_token::ValidateApiToken
 };
@@ -65,10 +61,9 @@ async fn main() -> std::io::Result<()> {
     let redis_pool = database::redis::create_pool().unwrap();
     let redis_data = Data::new(redis_pool);
 
-    let mongo_db = MongoRepo::init().await;
-    let mongo_data = Data::new(mongo_db);
-
-    rebuild_cache(redis_data.clone(), mongo_data.clone()).await;
+    let pg_pool = database::postgres::create_pool()
+        .await.unwrap();
+    let pg_data = Data::new(pg_pool);
 
     HttpServer::new(move || {
         let cors = actix_cors::Cors::default()
@@ -78,7 +73,7 @@ async fn main() -> std::io::Result<()> {
 
         App::new()
             .app_data(redis_data.clone())
-            .app_data(mongo_data.clone())
+            .app_data(pg_data)
             .wrap(cors)
             .service(
                 web::scope("/api")
