@@ -1,5 +1,5 @@
 use actix_web::{
-    get, post, delete,
+    get, post, patch, delete,
     HttpResponse,
     web::{Data, Json, Path}
 };
@@ -7,8 +7,11 @@ use serde_json::json;
 use sqlx::PgPool;
 use chrono::Utc;
 use crate::{
-    database::models::user::DbUser,
-    routes::models::user::{UserRequest, UserEditRequest},
+    database::{
+        models::user::DbUser,
+        postgres::{is_username_available, is_email_available}
+    },
+    routes::models::user::{UserRequest, UserEditRequest, UserExistsRequest},
     utils::{hash_string, validate_password},
     models::user::User
 };
@@ -33,12 +36,23 @@ pub async fn get_user(db: Data<PgPool>, path: Path<String>) -> HttpResponse {
             };
             return HttpResponse::Ok().json(user_res);
         },
-        Err(err) => HttpResponse::InternalServerError().body(err.to_string())
+        Err(_) => HttpResponse::NotFound().finish()
     }
 }
 
 #[post("")]
 pub async fn create_user(db: Data<PgPool>, user: Json<UserRequest>) -> HttpResponse {
+    if !is_username_available(db.clone(), user.username.to_string()).await {
+        return HttpResponse::Conflict().body(
+            format!("User with username `{}` already exists.", user.username.to_string())
+        )
+    }
+    if !is_email_available(db.clone(), user.email.to_string()).await {
+        return HttpResponse::Conflict().body(
+            format!("User with email `{}` already exists.", user.email.to_string())
+        )
+    }
+
     if !validate_password(user.password.to_string()) {
         return HttpResponse::BadRequest().body("Invalid password: Too weak!");
     }
@@ -62,16 +76,99 @@ pub async fn create_user(db: Data<PgPool>, user: Json<UserRequest>) -> HttpRespo
     }
 }
 
-// #[patch("/{username}")]
-// pub async fn edit_user(db: Data<PgPool>, path: Path<String>, new_data: Json<UserEditRequest>) -> HttpResponse {
-//     let username = path.into_inner();
-//
-//     /*
-//       This might be a pain :')
-//     */
-//
-//     db.edit_user(username, new_data.into_inner()).await
-// }
+#[patch("/{username}")]
+pub async fn edit_user(db: Data<PgPool>, path: Path<String>, new_data: Json<UserEditRequest>) -> HttpResponse {
+    let username = path.into_inner();
+
+
+    // Name
+    if new_data.name.is_some() {
+        let query = sqlx::query!(
+            r#"
+            UPDATE "user"
+            SET name = $2
+            WHERE username = $1
+            "#, username, new_data.name.as_ref().unwrap()
+        ).execute(&**db).await;
+
+        if query.is_err() {
+            return HttpResponse::InternalServerError().body(
+                query.err().unwrap().to_string()
+            );
+        }
+    }
+    // Email
+    if new_data.email.is_some() {
+        if !is_email_available(db.clone(), new_data.email.clone().unwrap().to_string()).await {
+            return HttpResponse::Conflict().body(
+                format!(
+                    "User with email `{}` already exists.", 
+                    new_data.email.clone().unwrap().to_string()
+                )
+            )
+        }
+
+        let query = sqlx::query!(
+            r#"
+            UPDATE "user"
+            SET email = $2
+            WHERE username = $1
+            "#, username, new_data.email.as_ref().unwrap()
+        ).execute(&**db).await;
+
+        if query.is_err() {
+            return HttpResponse::InternalServerError().body(
+                query.err().unwrap().to_string()
+            );
+        }
+    }
+    // Username
+    if new_data.username.is_some() {
+        if !is_username_available(db.clone(), new_data.username.clone().unwrap().to_string()).await {
+            return HttpResponse::Conflict().body(
+                format!(
+                    "User with username `{}` already exists.", 
+                    new_data.username.clone().unwrap().to_string()
+                )
+            )
+        }
+
+        let query = sqlx::query!(
+            r#"
+            UPDATE "user"
+            SET username = $2
+            WHERE username = $1
+            "#, username, new_data.username.as_ref().unwrap()
+        ).execute(&**db).await;
+
+        if query.is_err() {
+            return HttpResponse::InternalServerError().body(
+                query.err().unwrap().to_string()
+            );
+        }
+    }
+    // Password
+    if new_data.password.is_some() {
+        let new_pass_hash = hash_string(new_data.password.as_ref().unwrap().to_string()).unwrap();
+
+        let query = sqlx::query!(
+            r#"
+            UPDATE "user"
+            SET password = $2, salt = $3
+            WHERE username = $1
+            "#, username, new_pass_hash.hash, new_pass_hash.salt
+        ).execute(&**db).await;
+
+        if query.is_err() {
+            return HttpResponse::InternalServerError().body(
+                query.err().unwrap().to_string()
+            );
+        }
+    }
+
+
+    HttpResponse::Ok().finish()
+}
 
 #[delete("/{username}")]
 pub async fn delete_user(db: Data<PgPool>, path: Path<String>) -> HttpResponse {
@@ -90,17 +187,18 @@ pub async fn delete_user(db: Data<PgPool>, path: Path<String>) -> HttpResponse {
     }
 }
 
-// This should probably be a post request instead but here it is for now
-// #[get("/exists/{type}/{query}")]
-// pub async fn check_user_exists(db: Data<PgPool>, path: Path<(String, String)>) -> HttpResponse {
-//     let (field_type, query_value) = path.into_inner();
+#[post("/exists")]
+pub async fn check_user_exists(db: Data<PgPool>, exists: Json<UserExistsRequest>) -> HttpResponse {
+    if exists.exists_type == "email" {
+        let does_exist = !is_email_available(db.clone(), exists.value.clone()).await;
 
-//     if field_type == "email" || field_type == "username" {
-//         let exists = db.check_user_exists(field_type, query_value).await;
-//         HttpResponse::Ok().json(json!({ "exists": exists }))
-//     } else {
-//         HttpResponse::BadRequest().body(format!("Invalid query type `{}`.", field_type))
-//     }
+        return HttpResponse::Ok().json(json!({ "exists": does_exist }))
+    } else if exists.exists_type == "username" {
+        let does_exist = !is_username_available(db.clone(), exists.value.clone()).await;
 
-// }
+        return HttpResponse::Ok().json(json!({ "exists": does_exist }))
+    } else {
+        return HttpResponse::BadRequest().finish()
+    }
+}
 

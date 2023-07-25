@@ -1,7 +1,6 @@
 #[macro_use] extern crate log;
 extern crate pretty_env_logger;
 extern crate dotenvy;
-use std::ops::Deref;
 use dotenvy::dotenv;
 use clap::{Parser};
 use actix_web::{get, HttpServer, App, web::Data, Responder, web};
@@ -83,9 +82,9 @@ async fn main() -> std::io::Result<()> {
                         web::scope("/user")
                             .service(get_user)
                             .service(create_user)
-                            // .service(edit_user)
+                            .service(edit_user)
                             .service(delete_user)
-                            // .service(check_user_exists)
+                            .service(check_user_exists)
                     )
             )
             .service(
