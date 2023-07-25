@@ -6,6 +6,7 @@ use actix_web::{
 use serde_json::json;
 use sqlx::PgPool;
 use chrono::Utc;
+use uuid::Uuid;
 use crate::{
     database::{
         models::user::DbUser,
@@ -32,7 +33,7 @@ pub async fn get_user(db: Data<PgPool>, path: Path<String>) -> HttpResponse {
             let user_res = User {
                 name: res.name,
                 username: res.username,
-                created_at: res.created_at
+                created_at: res.created_at.to_string()
             };
             return HttpResponse::Ok().json(user_res);
         },
@@ -59,14 +60,14 @@ pub async fn create_user(db: Data<PgPool>, user: Json<UserRequest>) -> HttpRespo
 
     let password = hash_string(user.password.to_owned()).unwrap();
 
-    let current_time = Utc::now().to_string();
+    let current_time = Utc::now();
 
     let query = sqlx::query!(
         r#"
-        INSERT INTO "user" (username, name, avatar_url, created_at, email, password, salt)
-        VALUES ($1, $2, $3, $4, $5, $6, $7)
+        INSERT INTO "user" (id, username, name, avatar_url, created_at, email, password, salt)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
         "#,
-        user.username, user.name, "", current_time, user.email, password.hash, password.salt
+        Uuid::new_v4(), user.username, user.name, "", current_time.naive_utc(), user.email, password.hash, password.salt
 
     ).execute(&**db).await;
 
