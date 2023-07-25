@@ -1,11 +1,11 @@
-use std::env;
 use rand::{
     Rng, thread_rng,
     distributions::Alphanumeric
 };
 use actix_web::{
+    get, post,
     web::{Data, Path},
-    get, HttpResponse, HttpRequest, post};
+    HttpResponse};
 use sqlx::PgPool;
 use uuid::Uuid;
 use crate::{
@@ -18,7 +18,7 @@ use crate::{
 
 
 #[get("/token/gen/{permission_level}")]
-pub async fn gen_key(req: HttpRequest, db: Data<PgPool>, path: Path<i8>) -> HttpResponse {
+pub async fn gen_key(db: Data<PgPool>, path: Path<i8>) -> HttpResponse {
     let new_key: String = thread_rng()
         .sample_iter(&Alphanumeric)
         .take(64)
