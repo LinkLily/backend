@@ -3,10 +3,9 @@ use actix_web::web::Data;
 use deadpool_redis::{Config, Pool, Runtime, CreatePoolError, Connection};
 use redis::cmd;
 use crate::database::{
-    mongo::MongoRepo,
-    models::api::{
-        ApiKeyRedis
-    }
+    // models::api::{
+    //     ApiKeyRedis
+    // }
 };
 
 pub type RedisPool = Pool;

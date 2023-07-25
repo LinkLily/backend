@@ -6,23 +6,16 @@ use rand::{
 use actix_web::{
     web::{Data, Path},
     get, HttpResponse, HttpRequest};
-use log::kv::Source;
-use redis::AsyncCommands;
+use sqlx::PgPool;
+use uuid::Uuid;
 use crate::{
     models::api::ApiKeyPair,
     utils::hash_string_with_salt,
-    database::{
-        mongo::MongoRepo,
-        redis::{
-            RedisPool,
-            rebuild_cache
-        }
-    }
 };
 
 
 #[get("/token/gen/{permission_level}")]
-pub async fn gen_key(req: HttpRequest, redis: Data<RedisPool>, db: Data<MongoRepo>, path: Path<i8>) -> HttpResponse {
+pub async fn gen_key(req: HttpRequest, db: Data<PgPool>, path: Path<i8>) -> HttpResponse {
     let key_gen_env = env::var("ADMIN_TOKEN").unwrap();
     let key_gen_header = req.headers().get("X-LinkLily-Admin-Token");
     let key_gen_header_string;
@@ -61,8 +54,12 @@ pub async fn gen_key(req: HttpRequest, redis: Data<RedisPool>, db: Data<MongoRep
     };
 
 
-    let db_res = db.write_api_key(key_hash, permission_level)
-        .await;
+    let db_res = sqlx::query!(
+        r#"
+        INSERT INTO "api_key" (id, hashed_key, permission_level)
+        VALUES ($1, $2, $3)
+        "#, Uuid::new_v4(), key_hash, i32::from(permission_level)
+    ).execute(&**db).await;
 
     match db_res {
         Ok(_) => (),
@@ -72,7 +69,7 @@ pub async fn gen_key(req: HttpRequest, redis: Data<RedisPool>, db: Data<MongoRep
 
     debug!("Wrote to database!");
 
-    rebuild_cache(redis, db).await;
+    // rebuild_cache(redis, db).await;
 
 
     HttpResponse::Ok().json(

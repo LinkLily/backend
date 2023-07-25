@@ -1,12 +1,18 @@
 use serde::{Serialize, Deserialize};
-use mongodb::bson::oid::ObjectId;
-use crate::models::user::UserLinks;
+use uuid::Uuid;
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct UserContentMongo {
-    #[serde(rename = "_id", skip_serializing_if = "Option::is_none")]
-    pub id: Option<ObjectId>,
-    pub user: String,
-    pub links: Vec<UserLinks>
+pub struct DbUserContent {
+    pub links: Vec<DbLink>
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct DbLink {
+    pub id: Uuid,
+    pub for_username: String,
+    pub order: i16,
+    pub label: String,
+    pub link: String,
+    pub is_nsfw: bool
 }
 

@@ -8,13 +8,14 @@ use actix_web::{get, HttpServer, App, web::Data, Responder, web};
 use actix_web::dev::Service;
 use futures::FutureExt;
 use redis;
+use sqlx::{Pool, Postgres};
 use crate::{
     routes::{
         user::*,
         api::gen_key
     },
     utils::gen_api_key,
-    middleware::validate_api_token::ValidateApiToken
+    // middleware::validate_api_token::ValidateApiToken
 };
 
 mod database;
@@ -63,7 +64,6 @@ async fn main() -> std::io::Result<()> {
 
     let pg_pool = database::postgres::create_pool()
         .await.unwrap();
-    let pg_data = Data::new(pg_pool);
 
     HttpServer::new(move || {
         let cors = actix_cors::Cors::default()
@@ -73,19 +73,19 @@ async fn main() -> std::io::Result<()> {
 
         App::new()
             .app_data(redis_data.clone())
-            .app_data(pg_data)
+            .app_data(Data::new(pg_pool.clone()))
             .wrap(cors)
             .service(
                 web::scope("/api")
-                    .wrap(ValidateApiToken)
+                    // .wrap(ValidateApiToken)
                     .service(root)
                     .service(
                         web::scope("/user")
                             .service(get_user)
                             .service(create_user)
-                            .service(edit_user)
+                            // .service(edit_user)
                             .service(delete_user)
-                            .service(check_user_exists)
+                            // .service(check_user_exists)
                     )
             )
             .service(
