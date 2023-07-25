@@ -31,6 +31,7 @@ pub async fn get_user(db: Data<PgPool>, path: Path<String>) -> HttpResponse {
     match db_res {
         Ok(res) => {
             let user_res = User {
+                id: res.id,
                 name: res.name,
                 username: res.username,
                 created_at: res.created_at.to_string()
