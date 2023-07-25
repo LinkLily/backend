@@ -2,19 +2,18 @@
 extern crate pretty_env_logger;
 extern crate dotenvy;
 use dotenvy::dotenv;
-use clap::{Parser};
+use clap::Parser;
 use actix_web::{get, HttpServer, App, web::Data, Responder, web};
-use actix_web::dev::Service;
-use futures::FutureExt;
-use redis;
-use sqlx::{Pool, Postgres};
 use crate::{
     routes::{
         user::*,
-        api::gen_key
+        api::*
     },
     utils::gen_api_key,
-    // middleware::validate_api_token::ValidateApiToken
+    middleware::{
+        validate_admin_token::ValidateAdminToken,
+        validate_api_token::ValidateApiToken
+    }
 };
 
 mod database;
@@ -74,10 +73,10 @@ async fn main() -> std::io::Result<()> {
             .app_data(redis_data.clone())
             .app_data(Data::new(pg_pool.clone()))
             .wrap(cors)
+            .service(root)
             .service(
                 web::scope("/api")
-                    // .wrap(ValidateApiToken)
-                    .service(root)
+                    .wrap(ValidateApiToken)
                     .service(
                         web::scope("/user")
                             .service(get_user)
@@ -89,7 +88,9 @@ async fn main() -> std::io::Result<()> {
             )
             .service(
                 web::scope("/admin")
+                    .wrap(ValidateAdminToken)
                     .service(gen_key)
+                    .service(post_clear_cache)
             )
     })
     .bind(("127.0.0.1", 8080))?

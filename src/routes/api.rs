@@ -5,30 +5,20 @@ use rand::{
 };
 use actix_web::{
     web::{Data, Path},
-    get, HttpResponse, HttpRequest};
+    get, HttpResponse, HttpRequest, post};
 use sqlx::PgPool;
 use uuid::Uuid;
 use crate::{
     models::api::ApiKeyPair,
-    utils::hash_string_with_salt,
+    utils::hash_string_with_salt, 
+    database::redis::{
+        RedisPool, clear_cache
+    },
 };
 
 
 #[get("/token/gen/{permission_level}")]
 pub async fn gen_key(req: HttpRequest, db: Data<PgPool>, path: Path<i8>) -> HttpResponse {
-    let key_gen_env = env::var("ADMIN_TOKEN").unwrap();
-    let key_gen_header = req.headers().get("X-LinkLily-Admin-Token");
-    let key_gen_header_string;
-    match key_gen_header {
-        Some(header) => key_gen_header_string = header.to_str().unwrap().to_string(),
-        None => return HttpResponse::Unauthorized().finish()
-    };
-
-    if key_gen_header_string != key_gen_env {
-        return HttpResponse::Unauthorized().finish();
-    }
-
-
     let new_key: String = thread_rng()
         .sample_iter(&Alphanumeric)
         .take(64)
@@ -81,5 +71,14 @@ pub async fn gen_key(req: HttpRequest, db: Data<PgPool>, path: Path<i8>) -> Http
     )
 }
 
+#[post("/clear-cache")]
+pub async fn post_clear_cache(redis: Data<RedisPool>) -> HttpResponse {
+    let res = clear_cache(redis).await;
+
+    match res {
+        Ok(_) => HttpResponse::Ok().finish(),
+        Err(_) => HttpResponse::InternalServerError().finish()
+    }
+}
 
 
