@@ -1,15 +1,16 @@
 use serde::{Serialize, Deserialize};
-use mongodb::bson::oid::ObjectId;
+use chrono::{NaiveDateTime};
+use uuid::Uuid;
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct UserMongo {
-    #[serde(rename = "_id", skip_serializing_if = "Option::is_none")]
-    pub id: Option<ObjectId>,
-    pub name: Option<String>,
-    pub email: String,
+pub struct DbUser {
+    pub id: Uuid,
     pub username: String,
+    pub name: Option<String>,
+    pub avatar_url: String,
+    pub created_at: NaiveDateTime,
+    pub email: String,
     pub password: String,
-    pub salt: String,
-    pub created_at: String
+    pub salt: String
 }
 

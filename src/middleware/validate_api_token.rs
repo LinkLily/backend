@@ -9,14 +9,14 @@ use actix_web::{dev::{
 }, web::Data, body::EitherBody, Error, HttpResponse};
 use futures::future::LocalBoxFuture;
 use redis::cmd;
+use sqlx::postgres::PgPool;
 use crate::{
     database::{
         redis::RedisPool,
-        mongo::MongoRepo
+        models::api::DbApiKey
     },
-    models::api::ApiKey
 };
-use crate::database::redis::rebuild_cache;
+use crate::database::redis::cache_api_keys;
 use crate::utils::hash_string_with_salt;
 
 
@@ -73,9 +73,9 @@ where
                 let redis = req.app_data::<Data<RedisPool>>().clone().unwrap();
 
                 if update_cache {
-                    let mongo = req.app_data::<Data<MongoRepo>>().clone().unwrap();
+                    let mongo = req.app_data::<Data<PgPool>>().clone().unwrap();
 
-                    rebuild_cache(redis.clone(), mongo.clone()).await;
+                    cache_api_keys(redis.clone(), mongo.clone()).await;
                     updated_cache = true;
                 }
 
@@ -109,14 +109,14 @@ where
                     let hashed_token = hash_string_with_salt(api_token_string, api_secret_string);
 
                     let mut is_authorized = false;
-                    let mut auth_level: i8 = 0;
+                    // let mut auth_level: i32 = 0;
 
                     for key_pair_string in redis_data {
-                        let key_pair: ApiKey = serde_json::from_str(&*key_pair_string).unwrap();
+                        let key_pair: DbApiKey = serde_json::from_str(&*key_pair_string).unwrap();
 
-                        if hashed_token == key_pair.hashed_api_key {
+                        if hashed_token == key_pair.hashed_key {
                             is_authorized = true;
-                            auth_level = key_pair.permission_level
+                            // auth_level = key_pair.permission_level
                         }
                     }
 

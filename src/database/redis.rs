@@ -1,11 +1,11 @@
 use std::env;
 use actix_web::web::Data;
 use deadpool_redis::{Config, Pool, Runtime, CreatePoolError, Connection};
-use redis::cmd;
+use redis::{cmd, RedisError};
+use sqlx::postgres::PgPool;
 use crate::database::{
-    mongo::MongoRepo,
-    models::api::{
-        ApiKeyRedis
+    models::{
+        api::DbApiKey
     }
 };
 
@@ -16,22 +16,33 @@ pub fn create_pool() -> Result<RedisPool, CreatePoolError> {
     let config = Config::from_url(uri);
     let pool = config.create_pool(Some(Runtime::Tokio1));
 
-    info!("Successfully connected to Redis database");
+    info!("Successfully connected to Redis database!");
 
     pool
 }
 
-pub async fn rebuild_cache(redis: Data<RedisPool>, mongo: Data<MongoRepo>) {
-    let mut conn = clear_cache(redis).await;
+pub async fn cache_api_keys(redis: Data<RedisPool>, db: Data<PgPool>) {
+    let mut conn = redis.get().await.unwrap();
 
-    info!("Rebuilding Redis cache...");
+    info!("Caching API keys...");
 
-    let mongo_vec = mongo.get_all_api_keys().await;
+    cmd("DEL")
+        .arg("api_keys")
+        .query_async::<_, ()>(&mut conn)
+        .await.expect("Could not delete \"api_keys\" from Redis cache");
 
 
-    for key in mongo_vec {
-        let api_key_redis = ApiKeyRedis {
-            hashed_api_key: key.hashed_api_key,
+    let api_key_vec = sqlx::query!(
+        r#"
+        SELECT * FROM api_key
+        "#
+    ).fetch_all(&**db).await.unwrap();
+
+
+    for key in api_key_vec {
+        let api_key_redis = DbApiKey {
+            id: key.id,
+            hashed_key: key.hashed_key,
             permission_level: key.permission_level
         };
 
@@ -42,18 +53,18 @@ pub async fn rebuild_cache(redis: Data<RedisPool>, mongo: Data<MongoRepo>) {
             .await
             .expect(
                 &*format!(
-                    "Couldn't write API key to Redis with object ID {}",
-                    key.id.unwrap().to_string()
+                    "Couldn't write API key to Redis with ID {}",
+                    key.id.to_string()
                 )
             )
 
     }
 
 
-    info!("Rebuilt Redis cache!");
+    info!("Succesfully cached API keys!");
 }
 
-pub async fn clear_cache(redis: Data<RedisPool>) -> Connection {
+pub async fn clear_cache(redis: Data<RedisPool>) -> Result<Connection, RedisError> {
     let mut conn = redis.get().await.unwrap();
 
     info!("Clearing Redis cache...");
@@ -64,5 +75,5 @@ pub async fn clear_cache(redis: Data<RedisPool>) -> Connection {
 
     info!("Cleared Redis cache!");
 
-    conn
+    Ok(conn)
 }

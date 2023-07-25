@@ -16,3 +16,11 @@ pub struct UserEditRequest {
     pub password: Option<String>
 }
 
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct UserExistsRequest {
+    #[serde(rename = "type")]
+    pub exists_type: String,
+    pub value: String
+}
+
