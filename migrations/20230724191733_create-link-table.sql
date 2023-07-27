@@ -2,7 +2,7 @@
 
 CREATE TABLE IF NOT EXISTS link (
     id uuid PRIMARY KEY,
-    for_username text REFERENCES "user" (username) NOT NULL,
+    user_id uuid REFERENCES "user" (id) NOT NULL,
     "order" int NOT NULL,
     label text NOT NULL,
     link text NOT NULL,

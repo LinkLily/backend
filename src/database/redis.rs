@@ -12,7 +12,7 @@ use crate::database::{
 pub type RedisPool = Pool;
 
 pub fn create_pool() -> Result<RedisPool, CreatePoolError> {
-    let uri = env::var("REDIS_URI").unwrap();
+    let uri = env::var("REDIS_CACHE_URI").unwrap();
     let config = Config::from_url(uri);
     let pool = config.create_pool(Some(Runtime::Tokio1));
 

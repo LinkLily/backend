@@ -1,13 +1,17 @@
 #[macro_use] extern crate log;
 extern crate pretty_env_logger;
 extern crate dotenvy;
+use std::env;
+
 use dotenvy::dotenv;
 use clap::Parser;
 use actix_web::{get, HttpServer, App, web::Data, Responder, web};
+use actix_session::{SessionMiddleware, storage::RedisActorSessionStore};
 use crate::{
     routes::{
-        user::*,
-        api::*
+        api::*,
+        auth::*,
+        user::*
     },
     utils::gen_api_key,
     middleware::{
@@ -56,6 +60,9 @@ async fn main() -> std::io::Result<()> {
 
     info!("Server starting...");
 
+    let keygen_token = env::var("KEYGEN_TOKEN").unwrap();
+
+    let redis_sessions_url = env::var("REDIS_SESSIONS_URL").unwrap();
 
     let redis_pool = database::redis::create_pool().unwrap();
     let redis_data = Data::new(redis_pool);
@@ -77,6 +84,13 @@ async fn main() -> std::io::Result<()> {
             .service(
                 web::scope("/api")
                     .wrap(ValidateApiToken)
+                    .wrap(
+                        SessionMiddleware::builder(
+                            RedisActorSessionStore::new(redis_sessions_url.clone()),
+                            actix_web::cookie::Key::from(keygen_token.as_bytes())
+                        )
+                        .build(),
+                    )
                     .service(
                         web::scope("/user")
                             .service(get_user)
@@ -84,6 +98,11 @@ async fn main() -> std::io::Result<()> {
                             .service(edit_user)
                             .service(delete_user)
                             .service(check_user_exists)
+                    )
+                    .service(
+                        web::scope("/auth")
+                        .service(login)
+                        .service(logout)
                     )
             )
             .service(

@@ -3,10 +3,11 @@
 CREATE TABLE "user" (
     id uuid PRIMARY KEY,
     username text NOT NULL UNIQUE,
-    name text,
+    "name" text,
+    email text NOT NULL UNIQUE,
+    "password" text NOT NULL,
+    salt text NOT NULL,
     avatar_url text NOT NULL,
     created_at timestamp NOT NULL,
-    email text NOT NULL UNIQUE,
-    password text NOT NULL,
-    salt text NOT NULL
+    "role" text NOT NULL
 )

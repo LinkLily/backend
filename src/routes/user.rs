@@ -1,3 +1,4 @@
+use actix_session::Session;
 use actix_web::{
     get, post, patch, delete,
     HttpResponse,
@@ -10,16 +11,20 @@ use uuid::Uuid;
 use crate::{
     database::{
         models::user::DbUser,
-        postgres::{is_username_available, is_email_available}
+        postgres::{
+            is_username_available,
+            is_email_available
+        }
     },
-    routes::models::user::{UserRequest, UserEditRequest, UserExistsRequest},
-    utils::{hash_string, validate_password},
-    models::user::User
+    routes::models::user::{
+        UserRequest, UserResponse, UserEditRequest, UserExistsRequest
+    },
+    utils::{hash_string, validate_password}
 };
 
 
 #[get("/{username}")]
-pub async fn get_user(db: Data<PgPool>, path: Path<String>) -> HttpResponse {
+pub async fn get_user(session: Session, db: Data<PgPool>, path: Path<String>) -> HttpResponse {
     let username = path.into_inner();
 
     let db_res = sqlx::query_as!(
@@ -30,13 +35,27 @@ pub async fn get_user(db: Data<PgPool>, path: Path<String>) -> HttpResponse {
 
     match db_res {
         Ok(res) => {
-            let user_res = User {
+            let can_edit: bool;
+
+            if session.get::<String>("user_role").unwrap().unwrap() == "admin" {
+                can_edit = true;
+            } else {
+                if session.get::<String>("user_id").unwrap().unwrap() == res.id.to_string() {
+                    can_edit = true;
+                } else {
+                    can_edit = false;
+                }
+            }
+
+            let user_res = UserResponse {
                 id: res.id,
                 name: res.name,
                 username: res.username,
-                created_at: res.created_at.to_string()
+                created_at: res.created_at.to_string(),
+                can_edit
             };
-            return HttpResponse::Ok().json(user_res);
+
+            return HttpResponse::Ok().json(user_res)
         },
         Err(_) => HttpResponse::NotFound().finish()
     }
@@ -65,10 +84,12 @@ pub async fn create_user(db: Data<PgPool>, user: Json<UserRequest>) -> HttpRespo
 
     let query = sqlx::query!(
         r#"
-        INSERT INTO "user" (id, username, name, avatar_url, created_at, email, password, salt)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+        INSERT INTO "user" (id, username, name, avatar_url, created_at, email, password, salt, role)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
         "#,
-        Uuid::new_v4(), user.username, user.name, "", current_time.naive_utc(), user.email, password.hash, password.salt
+        Uuid::new_v4(), user.username, user.name, 
+        "", current_time.naive_utc(), user.email, 
+        password.hash, password.salt, "user"
 
     ).execute(&**db).await;
 
