@@ -2,12 +2,11 @@
 extern crate pretty_env_logger;
 extern crate dotenvy;
 use std::env;
-
 use dotenvy::dotenv;
 use clap::Parser;
-use actix_web::{get, HttpServer, App, web::Data, Responder, web};
+use actix_web::{web, get, HttpServer, App, Responder, web::Data, cookie::{Key, time}};
 use actix_governor::{Governor, GovernorConfigBuilder};
-use actix_session::{SessionMiddleware, storage::RedisActorSessionStore};
+use actix_session::{SessionMiddleware, storage::RedisActorSessionStore, config::PersistentSession};
 use crate::{
     routes::{
         api::*,
@@ -61,6 +60,8 @@ async fn main() -> std::io::Result<()> {
 
     info!("Server starting...");
 
+    let bind_addr = env::var("ACTIX_BIND_ADDR").unwrap();
+
     let rate_limit_conf = GovernorConfigBuilder::default()
         .per_second(3)
         .burst_size(20)
@@ -96,7 +97,11 @@ async fn main() -> std::io::Result<()> {
                     .wrap(
                         SessionMiddleware::builder(
                             RedisActorSessionStore::new(redis_sessions_url.clone()),
-                            actix_web::cookie::Key::from(keygen_token.as_bytes())
+                            Key::from(keygen_token.as_bytes())
+                        )
+                        .session_lifecycle(
+                            PersistentSession::default()
+                                .session_ttl(time::Duration::weeks(1))
                         )
                         .build(),
                     )
@@ -128,7 +133,7 @@ async fn main() -> std::io::Result<()> {
                     .service(post_clear_cache)
             )
     })
-    .bind(("127.0.0.1", 8080))?
+    .bind(bind_addr)?
     .run()
     .await
 
