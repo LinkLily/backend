@@ -6,6 +6,7 @@ use std::env;
 use dotenvy::dotenv;
 use clap::Parser;
 use actix_web::{get, HttpServer, App, web::Data, Responder, web};
+use actix_governor::{Governor, GovernorConfigBuilder};
 use actix_session::{SessionMiddleware, storage::RedisActorSessionStore};
 use crate::{
     routes::{
@@ -60,6 +61,13 @@ async fn main() -> std::io::Result<()> {
 
     info!("Server starting...");
 
+    let rate_limit_conf = GovernorConfigBuilder::default()
+        .per_second(3)
+        .burst_size(20)
+        .finish()
+        .unwrap();
+
+
     let keygen_token = env::var("KEYGEN_TOKEN").unwrap();
 
     let redis_sessions_url = env::var("REDIS_SESSIONS_URL").unwrap();
@@ -80,6 +88,7 @@ async fn main() -> std::io::Result<()> {
             .app_data(redis_data.clone())
             .app_data(Data::new(pg_pool.clone()))
             .wrap(cors)
+            .wrap(Governor::new(&rate_limit_conf))
             .service(root)
             .service(
                 web::scope("/api")
