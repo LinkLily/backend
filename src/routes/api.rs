@@ -9,7 +9,7 @@ use actix_web::{
 use sqlx::PgPool;
 use uuid::Uuid;
 use crate::{
-    models::api::ApiKeyPair,
+    routes::models::api::ApiKeyPair,
     utils::hash_string_with_salt, 
     database::redis::{
         RedisPool, clear_cache

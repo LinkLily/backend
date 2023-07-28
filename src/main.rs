@@ -24,7 +24,6 @@ use crate::{
 
 mod database;
 mod middleware;
-mod models;
 mod routes;
 mod utils;
 

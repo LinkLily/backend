@@ -1,4 +1,5 @@
 use std::process::exit;
+use serde::{Serialize, Deserialize};
 use rand::{
     Rng, thread_rng,
     distributions::Alphanumeric
@@ -8,11 +9,13 @@ use argon2::{
         rand_core::OsRng,
         PasswordHasher, SaltString, Error
     }, Argon2};
-use crate::{
-    models::{
-        util::HashResult
-    },
-};
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct HashResult {
+    pub hash: String,
+    pub salt: String
+}
+
 
 pub fn hash_string_with_salt(raw_string: String, salt_string: String) -> String {
     let argon2 = Argon2::default();
