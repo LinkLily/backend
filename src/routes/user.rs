@@ -200,7 +200,7 @@ pub async fn delete_user(db: Data<PgPool>, path: Path<String>) -> HttpResponse {
     let query = sqlx::query!(
         r#"
         DELETE FROM "user"
-        WHERE username = $1
+        WHERE (username = $1)
         "#, username
     ).execute(&**db).await;
 

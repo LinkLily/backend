@@ -12,7 +12,8 @@ use crate::{
     routes::{
         api::*,
         auth::*,
-        user::*
+        user::*,
+        user_content::*
     },
     utils::gen_api_key,
     middleware::{
@@ -107,6 +108,13 @@ async fn main() -> std::io::Result<()> {
                             .service(edit_user)
                             .service(delete_user)
                             .service(check_user_exists)
+                            .service(
+                                web::scope("/content")
+                                    .service(get_links)
+                                    .service(create_link)
+                                    .service(edit_link)
+                                    .service(delete_link)
+                            )
                     )
                     .service(
                         web::scope("/auth")
